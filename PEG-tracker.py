@@ -2,15 +2,40 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 import os
+import requests
+from bs4 import BeautifulSoup
+
+def get_naver_data(symbol):
+    """专门针对韩股的爬虫补丁，从 Naver Finance 抓取真实的 PE 和 PB"""
+    code = symbol.replace('.KS', '')
+    url = f"https://finance.naver.com/item/main.naver?code={code}"
+    # 伪装成浏览器访问
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        # Naver 财经页面的固定 ID
+        per_tag = soup.select_one('#_per')
+        pbr_tag = soup.select_one('#_pbr')
+        
+        pe_val = float(per_tag.text.replace(',', '')) if per_tag else None
+        pb_val = float(pbr_tag.text.replace(',', '')) if pbr_tag else None
+        
+        return pe_val, pb_val
+    except Exception as e:
+        print(f"  [!] Naver 补充爬取失败: {e}")
+        return None, None
 
 def fetch_valuation(symbol):
-    """抓取单个股票的估值数据"""
+    """抓取股票估值数据 (支持雅虎与 Naver 混合补丁)"""
     try:
         print(f"正在获取 {symbol} 的数据...")
         ticker = yf.Ticker(symbol)
         info = ticker.info
         
-        # 1. 基础数据获取
         current_price = info.get('currentPrice', info.get('regularMarketPrice'))
         pb_ratio = info.get('priceToBook')
         trailing_pe = info.get('trailingPE')
@@ -18,25 +43,23 @@ def fetch_valuation(symbol):
         peg_ratio = info.get('pegRatio')
         earnings_growth = info.get('earningsGrowth')
         
-        # 💡 2. 降级补偿机制 (Fallback)：解决雅虎前端有数据但API无数据的问题
-        if not trailing_pe:
-            eps = info.get('trailingEps')
-            if current_price and eps and eps > 0:
-                trailing_pe = current_price / eps
-                
-        if not pb_ratio:
-            book_value = info.get('bookValue')
-            if current_price and book_value and book_value > 0:
-                pb_ratio = current_price / book_value
+        # 💡 【核心黑科技】：如果是韩股且数据缺失，启动 Naver 爬虫打补丁！
+        if symbol.endswith('.KS') and (not trailing_pe or not pb_ratio):
+            print(f"  -> 检测到韩股基础数据缺失，正在跨站向 Naver Finance 请求补丁...")
+            naver_pe, naver_pb = get_naver_data(symbol)
+            if naver_pe:
+                trailing_pe = naver_pe
+                print(f"  -> ✅ 成功从 Naver 补齐 Trailing P/E: {trailing_pe}")
+            if naver_pb:
+                pb_ratio = naver_pb
+                print(f"  -> ✅ 成功从 Naver 补齐 P/B Ratio: {pb_ratio}")
 
-        # 3. 处理 PEG 缺失时的备用计算逻辑
+        # 处理 PEG 缺失时的备用计算逻辑
         if not peg_ratio and trailing_pe and earnings_growth:
             peg_ratio = trailing_pe / (earnings_growth * 100)
             
-        # 货币单位自适应 (韩股 KRW，美股 USD)
         currency = info.get('currency', 'USD')
             
-        # 构建结构化数据字典
         data = {
             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "Symbol": symbol,
@@ -55,38 +78,32 @@ def fetch_valuation(symbol):
         return None, None, None
 
 def analyze_signals(symbol, pb, peg):
-    """基于估值指标的自动化分析与预警逻辑"""
     alerts = []
-    
     if pb and isinstance(pb, (int, float)):
-        # 存储股通用 P/B 逃顶逻辑
         if pb >= 2.4:
             alerts.append(f"🔴 [{symbol} 危险] P/B = {pb:.2f} 已达周期极限高位，建议清仓保护利润！")
         elif pb >= 2.0:
             alerts.append(f"🟠 [{symbol} 预警] P/B = {pb:.2f} 进入高估值区，建议结合技术面分批止盈。")
             
     if peg and isinstance(peg, (int, float)):
-        if peg > 1.5: 
+        if peg > 2: 
             alerts.append(f"🟡 [{symbol} 过热] PEG = {peg:.2f}，估值扩张极快，请密切关注行业基本面拐点。")
-            
     return alerts
 
 def save_to_csv(data_list, filename="valuation_log.csv"):
-    """将批量抓取的数据一次性追加到本地 CSV 文件中"""
     df = pd.DataFrame(data_list)
     file_exists = os.path.isfile(filename)
     df.to_csv(filename, mode='a', index=False, header=not file_exists)
-    print(f"\n✅ {len(data_list)} 条数据已成功存入 {filename}")
+    print(f"\n✅ 数据已成功存入 {filename}")
 
 if __name__ == "__main__":
-    # 🎯 在这里添加你想跟踪的任何股票代码！
     symbols_to_track = ["000660.KS", "MU"] 
     
     all_results = []
     all_alerts = []
     
     print("="*80)
-    print(" 周期股估值多维监控系统")
+    print(" 周期股估值多维监控系统 (Yahoo + Naver 混合引擎)")
     print("="*80)
     
     for sym in symbols_to_track:
