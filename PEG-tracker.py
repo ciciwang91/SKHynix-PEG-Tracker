@@ -56,7 +56,7 @@ def analyze_signals(pb, peg):
             alerts.append(f"🟢 [估值正常] 当前 P/B 为 {pb}，未触及历史极限高位 (2.0~2.5区间)。")
             
     if peg and isinstance(peg, (int, float)):
-        if peg > 1.5: # 假设 1.5 为你设定的高估值 PEG 阈值
+        if peg > 2: # 假设 1.5 为你设定的高估值 PEG 阈值
             alerts.append(f"🟡 [情绪过热] PEG 达到 {peg}，估值扩张速度快于盈利预期，留意后续增长是否放缓。")
             
     return alerts
