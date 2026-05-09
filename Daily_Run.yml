@@ -1,16 +1,20 @@
-name: SK Hynix PEG Tracker
+name: SK Hynix Valuation Tracker
 
 on:
   schedule:
-    # 每天 UTC 时间凌晨 1 点（韩国市场开盘前）运行
-    - cron: '0 1 * * *'
-  workflow_dispatch: # 允许手动触发
+    - cron: '0 1 * * *' # 每天 UTC 1点（首尔时间上午10点）运行
+  workflow_dispatch:
+
+# 必须显式声明写入权限，否则机器人无法 Push 代码
+permissions:
+  contents: write
 
 jobs:
-  build:
+  run-and-record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -22,5 +26,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install yfinance pandas
           
-      - name: Run Tracker
+      - name: Run Python Tracker
         run: python tracker.py
+        
+      - name: Commit and Push CSV updates
+        run: |
+          # 配置机器人的 Git 身份
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 暂存生成的 CSV 文件
+          git add hynix_valuation_log.csv
+          
+          # 提交更改（如果数据没变导致无可提交内容，|| exit 0 可防止工作流报错终止）
+          git commit -m "Auto-update SK Hynix valuation log [skip ci]" || exit 0
+          
+          # 推送到仓库
+          git push
