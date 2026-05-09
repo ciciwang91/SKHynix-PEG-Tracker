@@ -27,7 +27,7 @@ jobs:
           pip install yfinance pandas
           
       - name: Run Python Tracker
-        run: python tracker.py
+        run: PEG-tracker.py
         
       - name: Commit and Push CSV updates
         run: |
