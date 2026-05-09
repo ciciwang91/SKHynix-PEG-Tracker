@@ -36,7 +36,9 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # 暂存生成的 CSV 文件
-          git add hynix_valuation_log.csv
+          #git add hynix_valuation_log.csv
+          git add *.csv  # <--- 推荐改成这样，一劳永逸
+          
           
           # 提交更改（如果数据没变导致无可提交内容，|| exit 0 可防止工作流报错终止）
           git commit -m "Auto-update SK Hynix valuation log [skip ci]" || exit 0
