@@ -2,7 +2,7 @@ name: SK Hynix Valuation Tracker
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 每天 UTC 1点（首尔时间上午11点）运行
+    - cron: '0 2 * * *' # 每天 UTC 2点（首尔时间上午11点）运行
   workflow_dispatch:
 
 # 必须显式声明写入权限，否则机器人无法 Push 代码
