@@ -97,7 +97,7 @@ def save_to_csv(data_list, filename="valuation_log.csv"):
     print(f"\n✅ 数据已成功存入 {filename}")
 
 if __name__ == "__main__":
-    symbols_to_track = ["000660.KS", "MU"] 
+    symbols_to_track = ["000660.KS","005930.KS" "MU","LITE","285A"] 
     
     all_results = []
     all_alerts = []
